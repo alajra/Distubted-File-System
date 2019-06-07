@@ -1,4 +1,7 @@
 import java.util.Scanner;
+import java.io.*;
+import java.rmi.*;
+import java.rmi.server.UnicastRemoteObject;
 
 class cachedFile {
 
@@ -24,7 +27,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
 
 
     //methods: download, upload, invalidate, writeback
-    public static void main(String[] args){
+    public static void main(String[] args) throws RemoteException {
 
         FileClient client = new FileClient();
 
