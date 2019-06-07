@@ -45,9 +45,20 @@ public class FileServer extends UnicastRemoteObject implements ClientInterface {
     }
 
 
-    boolean upload( String myIpName, String filename, FileContents contents ){
-
-        return true;
+    public boolean upload( String client, String filename, FileContents contents ){
+        File file = null;
+        synchronized (cache) {
+            for (int i = 0; i < cache.size(); i++) {
+                file = (File) cache.elementAt(i);
+                if (file.hit(filename)) {
+                    break;
+                } else {
+                    file = null;
+                    continue;
+                }
+            }
+        }
+        return (file == null) ? false : file.upload(client, contents);
     }
 
     public FileContents download( String client, String filename, String mode ){
