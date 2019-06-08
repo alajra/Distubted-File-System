@@ -11,6 +11,17 @@ public class FileServer extends UnicastRemoteObject implements ClientInterface {
         private byte[] bytes = null;
         private Vector<String> readers = null;
 
+        private static final int state_notshared = 0;
+        private static final int state_readshared = 1;
+        private static final int state_writeshared = 2;
+        private static final int state_back2writeshared = 3;
+        private int state;
+
+        private String owner;
+        private String port;
+        private Object inStateBack2WriteShared;
+
+
         public File(String name, String port) {
             this.name = name;
             readers = new Vector<String>();

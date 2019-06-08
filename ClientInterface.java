@@ -1,6 +1,6 @@
 import java.rmi.*;
-import java.util.Vector;
 
 public interface ClientInterface extends Remote {
-	public void receiveMessage(String command) throws RemoteException;
+    public boolean invalidate( ) throws RemoteException;
+    public boolean writeback( ) throws 	RemoteException;
 }

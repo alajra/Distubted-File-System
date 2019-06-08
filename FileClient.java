@@ -2,68 +2,112 @@ import java.util.Scanner;
 import java.io.*;
 import java.rmi.*;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Vector;
 
-class cachedFile {
-
-    protected String name;
-    protected String accessMode;
-    protected boolean owner;
-    protected int state;
-
-    private String[] states = {"cached", "shared", "owned"};
-
-    public cachedFile(String name, String accessMode, boolean ownership, int state) {
-        this.name = name;
-        this.accessMode = accessMode;
-        this.owner = ownership;
-        this.state = state;
-    }
-
-}
 
 public class FileClient extends UnicastRemoteObject implements ClientInterface {
+
+
     String locallyCachedFile = "/tmp/--.txt";
     static ServerInterface server = null;
+    String myIpName;
+    File file;
+    BufferedReader input;
+
+
+    class File {
+        //public String name;
+        private byte[] bytes = null;
+
+        public File() {
+
+        }
+
+        public boolean download(String filename, String mode){
+            FileContents contents = server.download(myIpName, filename, mode);
+            bytes = contents.get();
+            return true;
+        }
+
+        public boolean upload(){
+            FileContents contents = new FileContents(bytes);
+            server.upload(myIpName, name, contents);
+            return true;
+        }
+
+        private boolean execUnixCommnad(String command) {
+
+            try {
+                Runtime runtime = Runtime.getRuntime( );
+                Process process = runtime.exec( command );
+                int retval = process.waitFor();
+
+            } catch ( Exception e ) {
+                e.printStackTrace( );
+            }
+
+            return true;
+
+        }
+        public boolean launchEmacs(String mode){
+            /*if(){
+
+            }*/
+            return true;
+        }
+
+
+    }
 
 
     //methods: download, upload, invalidate, writeback
-    public static void main(String[] args) throws RemoteException {
+    public static void main(String[] args) throws Exception {
 
-        FileClient client = new FileClient();
+        if(args.length != 2){
+            System.err.println("usage: java FileClient server_ip port#");
+            System.exit(-1);
+        }
 
-        int port = Integer.parseInt(args[1]);
-        try {
-            server = ( ServerInterface )
-                    Naming.lookup("rmi://" + args[0] + ":" + port + "/unixserver");
-        } catch (Exception e) {}
 
-        System.out.println("FileClient: Next file to open");
+        FileClient client = new FileClient(args[0],args[1]);
 
-        System.out.println("File name:");
+        Naming.rebind("rmi://localhost:" + args[1] + "/fileclient"
+                + " invokded", client);
 
-        Scanner keyborad = new Scanner(System.in);
-
-        String fileName = keyborad.next();
-
-        System.out.println("How(r/w): ");
-
-        String accessMode = keyborad.next();
-
-        String downloadedFile  = client.download(fileName, accessMode);
-    }
-
-    public FileClient(){
+        client.loop();
 
     }
 
-    public String download(String fileName, String accessMode){
+    public FileClient(String serverName, String port) throws  Exception{
 
-        //check if file cashed locally
+        server = (ServerInterface)Naming.lookup("rmi://"+ serverName +":" + port + "/fileserver");
 
-        //call server.download
+        file = new File();
+
+        input = new BufferedReader(new InputStreamReader(System.in));
+
+    }
+
+    public  void loop(){
 
 
-        return "";
+        while (true){
+            System.out.println("FileClient: Next file to open");
+
+            System.out.print("\tFile name:");
+            String fileName = keyborad.next();
+            System.out.println();
+
+
+            System.out.print("\tHow(r/w): ");
+            String accessMode = keyborad.next();
+            System.out.println();
+
+
+
+        }
+
+
     }
 
 }

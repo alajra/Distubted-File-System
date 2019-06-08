@@ -1,15 +1,19 @@
-import java.io.*; 
+import java.io.*;
 import java.util.*;
 
 public class FileContents implements Serializable {
-    private byte[] contents; // file contents 
+
+    private byte[] contents;
+
     public FileContents( byte[] contents ) {
-        this.contents = contents; 
+        this.contents = contents;
     }
-    public void print( ) throws IOException { 
+
+    public void print( ) throws IOException {
         System.out.println( "FileContents = " + contents );
     }
+
     public byte[] get( ) {
-        return contents; }
+        return contents;
     }
 }
