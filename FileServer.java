@@ -2,59 +2,15 @@ import java.io.*;
 import java.util.*;
 import java.rmi.*;
 import java.rmi.server.*;
-public class FileServer extends UnicastRemoteObject implements ClientInterface {
-    Vector<File> cache = new Vector<File>();
-    static int port;
-
-    class File {
-        public String name;
-        private byte[] bytes = null;
-        private Vector<String> readers = null;
-
-        private static final int state_notshared = 0;
-        private static final int state_readshared = 1;
-        private static final int state_writeshared = 2;
-        private static final int state_back2writeshared = 3;
-        private int state;
-
-        private String owner;
-        private String port;
-        private Object inStateBack2WriteShared;
 
 
-        public File(String name, String port) {
-            this.name = name;
-            readers = new Vector<String>();
-            bytes = fileRead();
-        }
+public class FileServer extends UnicastRemoteObject implements ServerInterface {
+    private Vector<File> cache = new Vector<File>();
+    private String port;
 
-        public boolean hit(String filename) {
-            for (int i = 0; i < cache.size(); i++) {
-                if (cache.get(i).name.equalsIgnoreCase(filename)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private byte[] fileRead() {
-            bytes[] b = null;
-            FileInputStream file = new FileInputStream(name);
-            b = new byte[file.available()];
-            file.read(b);
-            file.close();
-            return b;
-        }
-
-        private boolean fileWrite() {
-            FileOutputStream file = new FileOutputStream(name);
-            file.write(bytes);
-            file.flush();
-            file.close();
-            return true;
-        }
+    public FileServer(String port) throws  RemoteException{
+        this.port = port;
     }
-
 
     public boolean upload( String client, String filename, FileContents contents ){
         File file = null;
@@ -97,8 +53,62 @@ public class FileServer extends UnicastRemoteObject implements ClientInterface {
             System.err.println("usage: java FileServer port#");
             System.exit(-1);
         }
-        port = Integer.parseInt(args[0]);
+
         FileServer server = new FileServer(args[0]);
     }
+
+
+
+    private class File {
+        public String name;
+        private byte[] bytes = null;
+        private Vector<String> readers = null;
+
+        private static final int state_notshared = 0;
+        private static final int state_readshared = 1;
+        private static final int state_writeshared = 2;
+        private static final int state_back2writeshared = 3;
+        private int state;
+
+        private String owner = null;
+        private String port;
+        private Object inStateBack2WriteShared;
+
+
+        public File(String name, String port) {
+            this.name = name;
+            readers = new Vector<String>();
+            bytes = fileRead();
+            this.port = port;
+        }
+
+        public boolean hit(String filename) {
+
+            for (int i = 0; i < cache.size(); i++) {
+                if (cache.get(i).name.equalsIgnoreCase(filename)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private byte[] fileRead() {
+            bytes[] b = null;
+            FileInputStream file = new FileInputStream(name);
+            b = new byte[file.available()];
+            file.read(b);
+            file.close();
+            return b;
+        }
+
+        private boolean fileWrite() {
+            FileOutputStream file = new FileOutputStream(name);
+            file.write(bytes);
+            file.flush();
+            file.close();
+            return true;
+        }
+    }
+
 
 }
