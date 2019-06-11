@@ -64,22 +64,23 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
         private byte[] bytes = null;
         private Vector<String> readers = null;
 
-        private static final int state_notshared = 0;
-        private static final int state_readshared = 1;
-        private static final int state_writeshared = 2;
-        private static final int state_back2writeshared = 3;
-        private int state;
+        private static final int notshared = 0;
+        private static final int readshared = 1;
+        private static final int writeshared = 2;
+        private static final int ownershipchange = 3;
+        public int state;
+
+        public Object waitingState;
 
         private String owner = null;
         private String port;
-        private Object inStateBack2WriteShared;
-
 
         public File(String name, String port) {
             this.name = name;
             readers = new Vector<String>();
             bytes = fileRead();
             this.port = port;
+            state = 0;
         }
 
         public boolean hit(String filename) {
@@ -108,7 +109,68 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
             file.close();
             return true;
         }
+
+        public synchronized FileContents download(String client, String mode) {
+            boolean becomesWriteShared = false;
+            boolean becomesOwnershipChanged = false;
+
+            while (this.state == ownershipchange) {
+                synchronized (this.waitingState) {
+                    try {
+                        waitingState.wait();
+                    } catch (Exception e) {}
+                }
+            }
+
+            readers.remove(client);
+            if (mode.equalsIgnoreCase("r")) {
+                readers.addElement(client);
+                this.state = readshared;     // read shared
+            } else {
+                this.state = writeshared;     // write shared
+            }
+            if (this.state == readshared) {
+                if (mode.equalsIgnoreCase("w")) {
+                    this.owner = client;
+                    becomesWriteShared = true;
+                }
+            }
+            if (this.state == writeshared) {
+                if (mode.equalsIgnoreCase("w")) {
+                    becomesOwnershipChanged = true;
+                    ClientInterface c;
+                    try {
+                        c = (ClientInterface)Naming.lookup("rmi://" + this.owner + ":" + this.port + "/fileclient");
+                    } catch (Exception e) {}
+                    if (c != null) {
+                        try {
+                            var5.writeback();
+                        } catch (Exception e) {}
+                    }
+                    try {
+                        this.wait();
+                    } catch (Exception e) {}
+                    this.owner = client;
+                }
+            }
+            if (becomesWriteShared) {
+                this.state = writeshared;
+            }
+            if (becomesOwnershipChanged) {
+                this.state = ownershipchange;
+            }
+
+            FileContents cont = new FileContents(bytes);
+            synchronized(this.waitingState) {
+                this.waitingState.notifyAll();
+            }
+
+            return cont;
+        }
     }
 
+    public synchronized boolean upload(String client, FileContents cont) {
+
+    }
 
 }
