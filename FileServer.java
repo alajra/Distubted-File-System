@@ -167,10 +167,18 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
 
             return cont;
         }
-    }
 
-    public synchronized boolean upload(String client, FileContents cont) {
+        public synchronized boolean upload(String client, FileContents cont) {
+            int error = 0;
 
+            switch (this.state) {
+                case writeshared:
+                    this.state = notshared;
+                    break;
+                case ownershipchange:
+                    this.state = writeshared;
+            }
+        }
     }
 
 }
