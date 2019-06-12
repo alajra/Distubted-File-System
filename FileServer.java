@@ -13,8 +13,13 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
     }
 
     public boolean upload( String client, String filename, FileContents contents ){
+
         File file = null;
+
+        //cache vector must be synchronized to avoid collision
         synchronized (cache) {
+
+            //look for file in cache vector
             for (int i = 0; i < cache.size(); i++) {
                 file = (File) cache.elementAt(i);
                 if (file.hit(filename)) {
@@ -24,13 +29,22 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
                     continue;
                 }
             }
+
         }
+
+        //if file does not exist return false,
+        //otherwise, upload the file
         return (file == null) ? false : file.upload(client, contents);
     }
 
     public FileContents download( String client, String filename, String mode ){
+
         File file = null;
+
+        //cache vector must be synchronized to avoid collision
         synchronized (cache) {
+
+            //check if the file exist in the server
             for (int i = 0; i < cache.size(); i++) {
                 file = (File) cache.elementAt(i);
                 if (file.hit(filename)) {
@@ -40,11 +54,19 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
                     continue;
                 }
             }
-            if (file = null) {
+
+            //if file does not exist
+            if (file == null) {
+
+                //create new file
                 file = new File(filename, port);
+
+                //add the file to the cache vector
                 cache.add(file);
             }
         }
+
+        //return the file content to the client
         return file.download(client, mode);
     }
 
@@ -54,7 +76,15 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
             System.exit(-1);
         }
 
-        FileServer server = new FileServer(args[0]);
+        try{
+            FileServer server = new FileServer(args[0]);
+            Naming.rebind("rmi://localhost:" + args[0] + "/fileserver", server);
+            System.out.println("Server is up and read");
+
+        }catch (Exception e){
+            e.printStackTrace();
+            System.exit(-1);
+        }
     }
 
 
@@ -68,6 +98,7 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
         private static final int readshared = 1;
         private static final int writeshared = 2;
         private static final int ownershipchange = 3;
+
         public int state;
 
         public Object waitingState;
@@ -84,29 +115,41 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
         }
 
         public boolean hit(String filename) {
-
-            for (int i = 0; i < cache.size(); i++) {
-                if (cache.get(i).name.equalsIgnoreCase(filename)) {
-                    return true;
-                }
-            }
-            return false;
+            //return true if this is file has the same filename
+            return filename.equals(name);
         }
 
         private byte[] fileRead() {
-            bytes[] b = null;
-            FileInputStream file = new FileInputStream(name);
-            b = new byte[file.available()];
-            file.read(b);
-            file.close();
+            byte[] b = null;
+
+            try {
+                //read from physical file to bytes
+                //and create a new file if does not exist
+                FileInputStream file = new FileInputStream(name);
+                b = new byte[file.available()];
+                file.read(b);
+                file.close();
+
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
             return b;
         }
 
         private boolean fileWrite() {
-            FileOutputStream file = new FileOutputStream(name);
-            file.write(bytes);
-            file.flush();
-            file.close();
+
+            try {
+                //write bytes to physical file
+                FileOutputStream file = new FileOutputStream(name);
+                file.write(bytes);
+                file.flush();
+                file.close();
+            }catch (Exception e){
+                e.printStackTrace();
+                return false;
+            }
+
             return true;
         }
 
@@ -114,6 +157,7 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
             boolean becomesWriteShared = false;
             boolean becomesOwnershipChanged = false;
 
+            //wait if this file is owned by different client
             while (this.state == ownershipchange) {
                 synchronized (this.waitingState) {
                     try {
@@ -122,37 +166,58 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
                 }
             }
 
+            //remove this client from the file reader
             readers.remove(client);
-            if (mode.equalsIgnoreCase("r")) {
-                readers.addElement(client);
-                this.state = readshared;     // read shared
-            } else {
-                this.state = writeshared;     // write shared
-            }
+
+            //if file state is readshared
             if (this.state == readshared) {
+                //if the access mode is write
                 if (mode.equalsIgnoreCase("w")) {
+                    //change the owner ship to this client
                     this.owner = client;
                     becomesWriteShared = true;
                 }
             }
+
+            //if the file is writeshared
             if (this.state == writeshared) {
+                //if the access mode write
                 if (mode.equalsIgnoreCase("w")) {
+
                     becomesOwnershipChanged = true;
-                    ClientInterface c;
+
+                    ClientInterface c = null;
+
                     try {
+                        //look up the current owner
                         c = (ClientInterface)Naming.lookup("rmi://" + this.owner + ":" + this.port + "/fileclient");
-                    } catch (Exception e) {}
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    //if owner found
                     if (c != null) {
                         try {
-                            var5.writeback();
-                        } catch (Exception e) {}
+                            //ask the current owner to write back
+                            c.writeback();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
+
+                    //wait while the current owner write back
                     try {
                         this.wait();
-                    } catch (Exception e) {}
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                    //change the ownership
                     this.owner = client;
                 }
             }
+
+            //change the file state
             if (becomesWriteShared) {
                 this.state = writeshared;
             }
@@ -160,6 +225,7 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
                 this.state = ownershipchange;
             }
 
+            //wait till the upload finishes
             FileContents cont = new FileContents(bytes);
             synchronized(this.waitingState) {
                 this.waitingState.notifyAll();
@@ -169,15 +235,63 @@ public class FileServer extends UnicastRemoteObject implements ServerInterface {
         }
 
         public synchronized boolean upload(String client, FileContents cont) {
-            int error = 0;
 
+            //check file state
             switch (this.state) {
+
+                //if the file is writeshared
                 case writeshared:
+                    //change the file state to not shared
                     this.state = notshared;
                     break;
+
+                //if the file is ownership change
                 case ownershipchange:
+                    //change the file state to writeshared
                     this.state = writeshared;
+                    break;
+
+                //if file is notshared or readshared
+                default:
+                    return false;
+
             }
+
+            //loop through all readers
+            for(String reader : readers){
+
+                ClientInterface c = null;
+
+                try {
+
+                    //look up the reader
+                    c = (ClientInterface)Naming.lookup("rmi://" + reader + ":" + this.port + "/fileclient");
+
+                    //invalidate cached file
+                    c.invalidate();
+
+                    //get the new content
+                    bytes = cont.get();
+
+                    //remove all readers
+                    this.readers.removeAllElements();
+
+                    //write the new content to physical file
+                    this.fileWrite();
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+
+            //if file was ownerchange
+            if(state == writeshared){
+                //resume the file download to the new owner
+                this.notify();
+            }
+
+            return true;
         }
     }
 
