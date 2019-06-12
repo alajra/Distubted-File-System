@@ -29,15 +29,20 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
             System.exit(-1);
         }
 
-        //create new client
-        FileClient client = new FileClient(args[0],args[1]);
 
-        //name binding
-        Naming.rebind("rmi://localhost:" + args[1] + "/fileclient"
-                + " invokded", client);
+        try {
+            //create new client
+            FileClient client = new FileClient(args[0],args[1]);
+            Naming.rebind("rmi://localhost:" + args[1] + "/fileclient", client);
+            System.out.println("rmi://localhost: " + args[0] + "/fileclient invokded");
+            client.loop();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            System.exit(1);
+        }
 
-        //start the client loop
-        client.loop();
+
+
 
     }
 
@@ -57,7 +62,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
             InetAddress myaddress = InetAddress.getLocalHost();
             this.myIpName = myaddress.getHostName();
         } catch (UnknownHostException e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
         }
 
     }
@@ -99,7 +104,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
                 if(!file.hit(fileName, accessMode)){
 
                     //if the cached file is write owned, then write it back to the server
-                    if(file.state == file.state_writeowned){
+                    if(file != null && file.state == file.state_writeowned){
                         writeback();
                     }
 
@@ -112,7 +117,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
 
 
             }catch (Exception e){
-                e.printStackTrace();
+                System.out.println(e.getMessage());
             }
 
 
@@ -162,7 +167,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
                 InetAddress myaddress = InetAddress.getLocalHost();
                 this.myIpName = myaddress.getHostName();
             } catch (UnknownHostException e) {
-                e.printStackTrace();
+                System.out.println(e.getMessage());
             }
 
 
@@ -187,14 +192,16 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
 
         public boolean download(String filename, String mode){
             try {
-                //download the filecotnet from the server
+                //download the filecontent from the server
                 FileContents contents = server.download(myIpName, filename, mode);
 
-                //get the bytes from the contents
-                bytes = contents.get();
+                if(contents != null){
+                    //get the bytes from the contents
+                    bytes = contents.get();
+                }
 
             } catch (Exception e){
-                e.printStackTrace();
+                System.out.println(e.getMessage());
                 return false;
             }
 
@@ -209,7 +216,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
                 server.upload(myIpName, name, contents);
 
             }catch (Exception e){
-                e.printStackTrace();
+                System.out.println(e.getMessage());
                 return false;
             }
             return true;
@@ -232,6 +239,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
         }
 
         public boolean launchEmacs(String mode) {
+            System.out.println("Emacs should be working");
             //check if the file is accessible
             if (!execUnixCommand("chmod", "600", "/tmp/"+ myIpName +".txt")) {
                 return false;
@@ -245,7 +253,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
                     fileOutput.close();
 
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    System.out.println(e.getMessage());
                     return false;
                 }
 
@@ -269,7 +277,7 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
                             fileInput.close();
 
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            System.out.println(e.getMessage());
                             return false;
                         }
 
