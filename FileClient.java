@@ -103,11 +103,13 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
                 //if the file is a cache miss
                 if(!file.hit(fileName, accessMode)){
 
+                    System.out.println("File("+ fileName +") is not cached");
                     //if the cached file is write owned, then write it back to the server
                     if(file != null && file.state == file.state_writeowned){
                         writeback();
                     }
 
+                    System.out.println("Downloading File("+ fileName +") from the server");
                     //download the file from the server with the right mode
                     file.download(fileName, accessMode);
                 }
@@ -128,11 +130,15 @@ public class FileClient extends UnicastRemoteObject implements ClientInterface {
 
     public boolean invalidate( ) throws RemoteException{
         //change the file state to invalid
+        System.out.println("File("+ file.name +")'s cached copy has been invalidated");
         file.state = file.state_invalid;
         return true;
     }
 
     public boolean writeback( ) throws 	RemoteException{
+
+        System.out.println("Writing File("+ file.name +") back to the server");
+
         //create a file content with the cached file
         FileContents contents = new FileContents(file.bytes);
 
